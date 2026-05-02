@@ -58,6 +58,32 @@
           <div class="question-tags" id="questionTags"></div>
           <div class="question-hint">穿過正確火圈 = 回血 / 火力 ↑　　穿錯 / 錯過 = 扣血 / 火力 ↓</div>
         </div>
+
+        <!-- Boss 血條 HUD -->
+        <div class="boss-hud hidden" id="bossHud">
+          <div class="boss-title">
+            <span class="boss-zh" id="bossZhName">—</span>
+            <span class="boss-de" id="bossDeName">—</span>
+          </div>
+          <div class="boss-bar-frame">
+            <div class="boss-bar-fill" id="bossBarFill"></div>
+          </div>
+          <div class="boss-subtitle" id="bossSubtitle">—</div>
+        </div>
+
+        <!-- Boss 進度 chip -->
+        <div class="boss-progress" id="bossProgress">
+          <span class="boss-progress-label">下一個頭目</span>
+          <span class="boss-progress-count"><b id="bossProgressCount">0</b>/<span id="bossProgressTotal">5</span></span>
+        </div>
+
+        <!-- Boss 出場橫條（暫時顯示） -->
+        <div class="boss-banner" id="bossBanner">
+          <div class="banner-warning">⚠ WARNING · 危 ⚠</div>
+          <div class="banner-zh" id="bannerZh">—</div>
+          <div class="banner-de" id="bannerDe">—</div>
+          <div class="banner-subtitle" id="bannerSubtitle">—</div>
+        </div>
       </div>
 
       <!-- 起始面板 -->
@@ -111,6 +137,23 @@
           </p>
           <div class="panel-actions">
             <button class="primary-btn" id="retryBtn">再來一局</button>
+            <a class="btn-link" href="./settings.html">⚙ 設定</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- 通關面板（擊敗魅魔女皇） -->
+      <div class="panel-mask hidden" id="winPanel">
+        <div class="panel-card win-card">
+          <h1>🏆 勝利！</h1>
+          <h2>Du hast die Sukkubus-Königin besiegt!</h2>
+          <p class="win-subtitle">你穿越了所有格位，擊敗了魅魔女皇，成為德文變格世界的英雄。</p>
+          <div class="big-num"><span id="winFinalScore">0</span></div>
+          <p class="subtitle" style="margin:0 0 10px;color:var(--text-dim);">
+            最佳分數：<b style="color:var(--gold)"><span id="winFinalBest">0</span></b>　擊殺：<b><span id="winFinalKills">0</span></b>
+          </p>
+          <div class="panel-actions">
+            <button class="primary-btn" id="winRetryBtn">再來一局</button>
             <a class="btn-link" href="./settings.html">⚙ 設定</a>
           </div>
         </div>

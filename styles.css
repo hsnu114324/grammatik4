@@ -334,6 +334,177 @@ body.game-body {
 
 .panel-mask.hidden { display: none; }
 
+/* 通關面板：魅魔女皇擊敗後的勝利畫面 */
+.win-card {
+  background: linear-gradient(160deg, #2b0f3b 0%, #4a1a4f 45%, #2a0e2f 100%);
+  border-color: #ff5da8;
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.7),
+    0 0 40px rgba(255, 90, 170, 0.45),
+    inset 0 0 30px rgba(255, 150, 210, 0.15);
+}
+.win-card h1 {
+  color: #ffd9ec;
+  text-shadow: 0 0 16px rgba(255, 130, 200, 0.7);
+  font-size: 2.1rem;
+}
+.win-card h2 {
+  color: #ffadd8;
+  letter-spacing: 1px;
+}
+.win-subtitle {
+  color: #f6c6e5;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  margin: 4px 0 14px;
+}
+
+/* Boss 血條 HUD */
+.boss-hud {
+  position: absolute;
+  top: calc(118px + var(--safe-top));
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(74vw, 520px);
+  padding: 9px 16px 11px;
+  background: linear-gradient(180deg, rgba(60, 10, 40, 0.9), rgba(18, 0, 14, 0.95));
+  border: 2px solid rgba(255, 90, 170, 0.75);
+  border-radius: 14px;
+  box-shadow:
+    0 6px 28px rgba(200, 50, 130, 0.55),
+    inset 0 0 14px rgba(255, 100, 180, 0.18);
+  text-align: center;
+  pointer-events: none;
+  z-index: 5;
+  animation: bossPulse 2.2s ease-in-out infinite;
+}
+.boss-hud.hidden { display: none; }
+
+.boss-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.boss-zh {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 0 0 10px rgba(255, 120, 180, 0.7);
+  letter-spacing: 1px;
+}
+.boss-de {
+  font-size: 0.88rem;
+  color: #ffb6d4;
+  letter-spacing: 1.2px;
+  font-weight: 600;
+}
+.boss-bar-frame {
+  margin: 7px 0 4px;
+  height: 16px;
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 100, 180, 0.45);
+  box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.85);
+}
+.boss-bar-fill {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #ff2d68 0%, #ff87c8 55%, #ffe3ef 100%);
+  box-shadow: 0 0 10px rgba(255, 60, 150, 0.65);
+  transition: width 0.28s cubic-bezier(.3,.7,.3,1);
+}
+.boss-subtitle {
+  font-size: 0.72rem;
+  color: rgba(255, 195, 225, 0.88);
+  margin-top: 3px;
+  letter-spacing: 0.5px;
+}
+@keyframes bossPulse {
+  0%, 100% { box-shadow: 0 6px 26px rgba(200, 60, 140, 0.35), inset 0 0 12px rgba(255, 100, 180, 0.14); }
+  50% { box-shadow: 0 6px 36px rgba(255, 100, 180, 0.7), inset 0 0 18px rgba(255, 150, 200, 0.25); }
+}
+
+/* 下一個頭目進度 chip（右下角） */
+.boss-progress {
+  position: absolute;
+  right: calc(14px + var(--safe-right));
+  bottom: calc(14px + var(--safe-bottom));
+  padding: 6px 10px;
+  background: rgba(10, 12, 26, 0.7);
+  border: 1px solid rgba(255, 120, 180, 0.45);
+  border-radius: 999px;
+  font-size: 0.72rem;
+  color: #ffc7e1;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  pointer-events: none;
+}
+.boss-progress-label { opacity: 0.8; }
+.boss-progress-count b { font-size: 0.95rem; color: #ff88c8; font-weight: 800; }
+.boss-progress.boss-active {
+  background: rgba(60, 10, 40, 0.75);
+  border-color: rgba(255, 90, 170, 0.8);
+  box-shadow: 0 0 10px rgba(255, 100, 180, 0.6);
+}
+.boss-progress.boss-active .boss-progress-label,
+.boss-progress.boss-active .boss-progress-count { color: #ffe0f0; }
+
+/* Boss 出場橫條 */
+.boss-banner {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  transform: translate(-50%, -50%) scale(0.5);
+  width: min(88vw, 680px);
+  padding: 20px 28px;
+  background: linear-gradient(180deg, rgba(80, 20, 60, 0.92), rgba(30, 0, 25, 0.95));
+  border: 3px solid rgba(255, 90, 170, 0.85);
+  border-radius: 20px;
+  text-align: center;
+  color: #fff;
+  box-shadow:
+    0 20px 60px rgba(200, 50, 130, 0.7),
+    inset 0 0 30px rgba(255, 120, 200, 0.25);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 12;
+  transition: opacity 0.35s ease, transform 0.45s cubic-bezier(.2, 1.6, .3, 1);
+}
+.boss-banner.show {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+.boss-banner .banner-warning {
+  font-size: 0.88rem;
+  color: #ffa0d0;
+  letter-spacing: 5px;
+  margin-bottom: 6px;
+  font-weight: 700;
+}
+.boss-banner .banner-zh {
+  font-size: 2.1rem;
+  font-weight: 900;
+  color: #ffd9ec;
+  text-shadow: 0 0 16px rgba(255, 120, 200, 0.8);
+  letter-spacing: 2px;
+}
+.boss-banner .banner-de {
+  font-size: 1rem;
+  color: #ffadd8;
+  letter-spacing: 2px;
+  margin-top: 4px;
+}
+.boss-banner .banner-subtitle {
+  font-size: 0.82rem;
+  color: #f6c6e5;
+  margin-top: 10px;
+}
+
 .panel-card {
   width: min(92vw, 480px);
   padding: 28px 26px;

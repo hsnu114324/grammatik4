@@ -27,6 +27,54 @@ const BULLET_SPEED = 44;
 const BULLET_LIFE = 2.5;
 const DOOR_MISS_DMG = 6;
 
+// ==================== 頭目定義 ====================
+// 每答對 BOSS_TRIGGER_CORRECTS 題觸發下一個頭目；擊敗第 4 個（魅魔女皇）= 通關
+const BOSS_TRIGGER_CORRECTS = 5;
+const BOSSES = [
+  {
+    id: 1, zhName: "\u683c\u4f4d\u5b88\u885b", deName: "Kasusw\u00e4chter",
+    subtitle: "Nom. \u00b7 Gen. \u00b7 Dat. \u00b7 Akk. \u56db\u683c\u7684\u9435\u7532\u5b88\u8b77\u8005",
+    hp: 180,
+    color: 0x5ac8ff, accent: 0xffd166,
+    pattern: "circle",        // 四方放射圓彈幕
+    shootInterval: 1.6, bulletSpeed: 9, bulletDamage: 8,
+    moveAmp: 4.5, moveFreq: 0.55,
+    scale: 1.25,
+  },
+  {
+    id: 2, zhName: "\u51a0\u8a5e\u9b54\u50cf", deName: "Artikel-Golem",
+    subtitle: "der \u00b7 die \u00b7 das \u4e09\u982d\u77f3\u5de8\u50cf",
+    hp: 260,
+    color: 0x7f6a4a, accent: 0xffc07a,
+    pattern: "trident",        // 三叉放射
+    shootInterval: 1.3, bulletSpeed: 10, bulletDamage: 9,
+    moveAmp: 3.0, moveFreq: 0.42,
+    scale: 1.35,
+  },
+  {
+    id: 3, zhName: "\u5f62\u5bb9\u8a5e\u5e7b\u8853\u5e2b", deName: "Adjektiv-Hexer",
+    subtitle: "\u8a5e\u5c3e\u8b8a\u5f62\u7684\u87ba\u65cb\u9b54\u5f48 \u00b7 -e / -en / -er",
+    hp: 360,
+    color: 0xaa77ff, accent: 0xff66cc,
+    pattern: "spiral",         // 連續旋轉螺旋
+    shootInterval: 0.38, bulletSpeed: 9, bulletDamage: 7,
+    moveAmp: 5.0, moveFreq: 0.78,
+    scale: 1.25,
+  },
+  {
+    id: 4, zhName: "\u9b45\u9b54\u5973\u7687", deName: "Sukkubus-K\u00f6nigin",
+    subtitle: "\u6700\u7d42\u9b54\u738b \u00b7 \u5fc3\u5f62\u5f48\u5e55 \u00b7 \u8e20\u60d1\u773e\u751f",
+    hp: 520,
+    color: 0xcc3366, accent: 0xffb5da,
+    pattern: "heart",          // 心形彈幕
+    shootInterval: 1.0, bulletSpeed: 10, bulletDamage: 11,
+    moveAmp: 5.5, moveFreq: 0.52,
+    scale: 1.6,
+    isFinal: true,
+  },
+];
+const TOTAL_BOSSES = BOSSES.length;
+
 // ==================== Audio ====================
 let audioCtx = null;
 function ensureAudio() {
@@ -82,6 +130,25 @@ const SFX = {
   damage: function () { playSweep("sawtooth", 240, 80, 0.28, 0.22); },
   miss: function () { playBlip("triangle", 180, 0.18, 0.1); },
   gameOver: function () { playSweep("square", 420, 90, 0.55, 0.22); setTimeout(function () { playSweep("sawtooth", 220, 60, 0.6, 0.22); }, 180); },
+  bossSpawn: function () {
+    playSweep("sawtooth", 120, 420, 0.55, 0.25);
+    setTimeout(function () { playSweep("square", 400, 180, 0.5, 0.2); }, 180);
+    setTimeout(function () { playBlip("triangle", 85, 0.4, 0.2); }, 400);
+  },
+  bossHit: function () { playBlip("square", 240, 0.1, 0.18); },
+  bossBigHit: function () { playSweep("triangle", 780, 320, 0.3, 0.2); },
+  bossBullet: function () { playBlip("triangle", 380, 0.08, 0.08); },
+  bossDefeat: function () {
+    playSweep("sine", 520, 1050, 0.3, 0.22);
+    setTimeout(function () { playSweep("sine", 740, 1500, 0.35, 0.2); }, 100);
+    setTimeout(function () { playSweep("sawtooth", 200, 80, 0.6, 0.22); }, 260);
+  },
+  win: function () {
+    playSweep("sine", 440, 880, 0.25, 0.22);
+    setTimeout(function () { playSweep("sine", 554, 1108, 0.25, 0.22); }, 180);
+    setTimeout(function () { playSweep("sine", 660, 1320, 0.35, 0.24); }, 360);
+    setTimeout(function () { playSweep("sine", 880, 1760, 0.6, 0.22); }, 600);
+  },
 };
 
 // ==================== Game State ====================
@@ -111,6 +178,11 @@ const state = {
     } catch (e) { /* ignore */ }
     return loadActiveGroups();
   })(),
+  // ── Boss / 頭目系統 ──
+  boss: null,                 // 目前活著的 Boss 物件（null = 沒有 Boss）
+  nextBossIdx: 0,             // 下一次要 spawn 的 Boss 索引
+  correctsSinceBoss: 0,       // 自上個 Boss 以來答對了多少題
+  gameWon: false,             // 是否已擊敗最終 Boss
 };
 
 let DIFF = DIFFICULTY_PRESETS[state.difficulty];
@@ -367,6 +439,7 @@ const doors = [];
 const enemies = [];
 const bullets = [];
 const sparks = [];
+const bossBullets = [];
 const trail = [];
 
 // ==================== Question pool ====================
@@ -1103,6 +1176,666 @@ function updateEnemyHpSprite(enemy) {
   enemy.spriteMat.needsUpdate = true;
 }
 
+// ==================== 頭目（Boss） ====================
+function makeBossNameTexture(zh, de) {
+  const w = 1024, h = 256;
+  const c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  const ctx = c.getContext("2d");
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = "#ffffff";
+  ctx.strokeStyle = "rgba(0,0,0,0.85)";
+  ctx.lineWidth = 8;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = "bold 120px 'Noto Sans TC', 'Segoe UI', sans-serif";
+  ctx.strokeText(zh, w / 2, h / 2 - 20);
+  ctx.fillText(zh, w / 2, h / 2 - 20);
+  ctx.fillStyle = "#ffd6e8";
+  ctx.font = "bold 58px 'Segoe UI', sans-serif";
+  ctx.strokeText(de, w / 2, h / 2 + 80);
+  ctx.fillText(de, w / 2, h / 2 + 80);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+function createBossModel(bossData) {
+  const group = new THREE.Group();
+  const mainColor = bossData.color;
+  const accent = bossData.accent;
+  const s = bossData.scale || 1.0;
+
+  const pivot = new THREE.Group();
+  group.add(pivot);
+  group.userData.pivot = pivot;
+
+  if (bossData.id === 1) {
+    // 格位守衛 Kasuswächter：中央鐵甲 + 四個盾牌（代表四格）
+    const core = new THREE.Mesh(
+      new THREE.DodecahedronGeometry(1.1 * s, 0),
+      new THREE.MeshStandardMaterial({
+        color: mainColor, emissive: accent, emissiveIntensity: 0.45,
+        roughness: 0.35, metalness: 0.7,
+      })
+    );
+    pivot.add(core);
+    group.userData.core = core;
+
+    const shieldMat = new THREE.MeshStandardMaterial({
+      color: mainColor, emissive: accent, emissiveIntensity: 0.7,
+      roughness: 0.25, metalness: 0.85,
+    });
+    const shields = [];
+    const labels = ["N.", "G.", "D.", "A."];
+    for (let i = 0; i < 4; i++) {
+      const ang = (i / 4) * Math.PI * 2;
+      const sh = new THREE.Mesh(new THREE.BoxGeometry(0.55 * s, 1.3 * s, 0.18 * s), shieldMat);
+      sh.position.set(Math.cos(ang) * 2.0 * s, Math.sin(ang) * 0.6, Math.sin(ang) * 1.1 * s);
+      sh.lookAt(pivot.position);
+      shields.push(sh);
+      pivot.add(sh);
+    }
+    group.userData.shields = shields;
+
+    // 中央皇冠環
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(1.35 * s, 0.12 * s, 8, 24),
+      new THREE.MeshStandardMaterial({ color: accent, emissive: accent, emissiveIntensity: 1.2 })
+    );
+    ring.rotation.x = Math.PI / 2;
+    pivot.add(ring);
+    group.userData.ring = ring;
+  } else if (bossData.id === 2) {
+    // 冠詞魔像 Artikel-Golem：圓柱身體 + 三顆頭
+    const body = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.2 * s, 1.5 * s, 1.9 * s, 16),
+      new THREE.MeshStandardMaterial({
+        color: mainColor, emissive: accent, emissiveIntensity: 0.25,
+        roughness: 0.75, metalness: 0.3,
+      })
+    );
+    body.position.y = 0;
+    pivot.add(body);
+    group.userData.body = body;
+
+    const headMat = new THREE.MeshStandardMaterial({
+      color: 0xcaa16a, emissive: accent, emissiveIntensity: 0.5,
+      roughness: 0.6, metalness: 0.2,
+    });
+    const heads = [];
+    const headLabels = ["der", "das", "die"];
+    const headColors = [0x5ac8ff, 0x7fffa8, 0xff88c8];
+    for (let i = 0; i < 3; i++) {
+      const ang = ((i - 1) * 0.7);
+      const head = new THREE.Group();
+      const sphere = new THREE.Mesh(
+        new THREE.SphereGeometry(0.55 * s, 14, 10),
+        headMat
+      );
+      head.add(sphere);
+      // 頭頂標籤
+      const cvs = document.createElement("canvas");
+      cvs.width = 128; cvs.height = 64;
+      const cx = cvs.getContext("2d");
+      cx.fillStyle = "rgba(0,0,0,0.8)";
+      cx.fillRect(0, 0, 128, 64);
+      cx.fillStyle = "#fff";
+      cx.font = "bold 48px 'Segoe UI', sans-serif";
+      cx.textAlign = "center";
+      cx.textBaseline = "middle";
+      cx.fillText(headLabels[i], 64, 32);
+      const labelTex = new THREE.CanvasTexture(cvs);
+      labelTex.colorSpace = THREE.SRGBColorSpace;
+      const label = new THREE.Sprite(new THREE.SpriteMaterial({ map: labelTex, depthTest: false, transparent: true }));
+      label.scale.set(0.9, 0.45, 1);
+      label.position.set(0, 0.8 * s, 0);
+      head.add(label);
+      // 頭上眼睛
+      const eye = new THREE.Mesh(
+        new THREE.SphereGeometry(0.12 * s, 8, 6),
+        new THREE.MeshBasicMaterial({ color: headColors[i] })
+      );
+      eye.position.set(0, 0, 0.5 * s);
+      head.add(eye);
+      head.position.set(Math.sin(ang) * 1.4 * s, 1.3 * s, Math.cos(ang) * 0.3 * s);
+      heads.push(head);
+      pivot.add(head);
+    }
+    group.userData.heads = heads;
+  } else if (bossData.id === 3) {
+    // 形容詞幻術師 Adjektiv-Hexer：浮動法師 + 三個魔法環
+    const robe = new THREE.Mesh(
+      new THREE.ConeGeometry(1.1 * s, 1.8 * s, 16),
+      new THREE.MeshStandardMaterial({
+        color: mainColor, emissive: accent, emissiveIntensity: 0.4,
+        roughness: 0.4, metalness: 0.35,
+      })
+    );
+    robe.position.y = -0.2;
+    pivot.add(robe);
+    group.userData.robe = robe;
+
+    const head = new THREE.Mesh(
+      new THREE.SphereGeometry(0.45 * s, 14, 10),
+      new THREE.MeshStandardMaterial({ color: 0xf0d4ff, emissive: accent, emissiveIntensity: 0.7 })
+    );
+    head.position.y = 0.85 * s;
+    pivot.add(head);
+
+    const hat = new THREE.Mesh(
+      new THREE.ConeGeometry(0.5 * s, 1.1 * s, 12),
+      new THREE.MeshStandardMaterial({ color: 0x551a8b, emissive: accent, emissiveIntensity: 0.5 })
+    );
+    hat.position.y = 1.7 * s;
+    pivot.add(hat);
+
+    const rings = [];
+    for (let i = 0; i < 3; i++) {
+      const r = new THREE.Mesh(
+        new THREE.TorusGeometry(1.4 * s + i * 0.25 * s, 0.05 * s, 8, 48),
+        new THREE.MeshBasicMaterial({
+          color: i % 2 === 0 ? accent : 0x55ffdd,
+          transparent: true, opacity: 0.75,
+        })
+      );
+      r.rotation.x = Math.PI / 2.2 + i * 0.2;
+      r.rotation.y = i * 0.4;
+      rings.push(r);
+      pivot.add(r);
+    }
+    group.userData.rings = rings;
+  } else {
+    // 魅魔女皇 Sukkubus-Königin：核心球 + 翅膀 + 王冠 + 玫瑰光環
+    const body = new THREE.Mesh(
+      new THREE.SphereGeometry(0.95 * s, 20, 14),
+      new THREE.MeshStandardMaterial({
+        color: mainColor, emissive: accent, emissiveIntensity: 0.55,
+        roughness: 0.3, metalness: 0.4,
+      })
+    );
+    pivot.add(body);
+    group.userData.body = body;
+
+    // 翅膀（canvas texture：羽毛狀紫紅漸層）
+    const wingCvs = document.createElement("canvas");
+    wingCvs.width = 512; wingCvs.height = 512;
+    const wcx = wingCvs.getContext("2d");
+    const grd = wcx.createRadialGradient(256, 256, 10, 256, 256, 256);
+    grd.addColorStop(0, "rgba(255, 150, 200, 0.95)");
+    grd.addColorStop(0.5, "rgba(180, 40, 110, 0.85)");
+    grd.addColorStop(1, "rgba(40, 0, 30, 0.0)");
+    wcx.fillStyle = grd;
+    // 羽翼形狀
+    wcx.beginPath();
+    wcx.moveTo(256, 256);
+    for (let i = 0; i <= 10; i++) {
+      const t = i / 10;
+      const a = Math.PI * 0.95 * (t - 0.5);
+      const r = 220 - Math.abs(t - 0.5) * 80;
+      wcx.lineTo(256 + Math.cos(a) * r, 256 + Math.sin(a) * r * 0.9);
+    }
+    wcx.closePath();
+    wcx.fill();
+    for (let i = 0; i < 80; i++) {
+      const x = 240 + Math.random() * 260;
+      const y = 100 + Math.random() * 300;
+      wcx.fillStyle = "rgba(255,220,240,0.35)";
+      wcx.beginPath();
+      wcx.arc(x, y, 2 + Math.random() * 2, 0, Math.PI * 2);
+      wcx.fill();
+    }
+    const wingTex = new THREE.CanvasTexture(wingCvs);
+    wingTex.colorSpace = THREE.SRGBColorSpace;
+    const wingMat = new THREE.MeshBasicMaterial({
+      map: wingTex, transparent: true, side: THREE.DoubleSide, depthWrite: false,
+    });
+    const wingL = new THREE.Mesh(new THREE.PlaneGeometry(2.4 * s, 2.4 * s), wingMat);
+    wingL.position.set(-1.6 * s, 0.6, -0.2);
+    wingL.rotation.y = Math.PI * 0.1;
+    pivot.add(wingL);
+    const wingR = new THREE.Mesh(new THREE.PlaneGeometry(2.4 * s, 2.4 * s), wingMat.clone());
+    wingR.position.set(1.6 * s, 0.6, -0.2);
+    wingR.rotation.y = -Math.PI * 0.1;
+    wingR.scale.x = -1;
+    pivot.add(wingR);
+    group.userData.wings = [wingL, wingR];
+
+    // 王冠（5 根小尖刺）
+    const crownMat = new THREE.MeshStandardMaterial({ color: 0xffdf7a, emissive: 0xffb347, emissiveIntensity: 1.1, metalness: 0.8, roughness: 0.25 });
+    for (let i = -2; i <= 2; i++) {
+      const sp = new THREE.Mesh(new THREE.ConeGeometry(0.12 * s, 0.4 * s + (i === 0 ? 0.22 : 0), 8), crownMat);
+      sp.position.set(i * 0.22 * s, 1.0 * s, 0);
+      pivot.add(sp);
+    }
+    // 王冠主環
+    const crownRing = new THREE.Mesh(new THREE.TorusGeometry(0.55 * s, 0.08 * s, 8, 18), crownMat);
+    crownRing.rotation.x = Math.PI / 2;
+    crownRing.position.y = 0.85 * s;
+    pivot.add(crownRing);
+
+    // 心形魅惑光環（Sprite）
+    const auraCvs = document.createElement("canvas");
+    auraCvs.width = 256; auraCvs.height = 256;
+    const acx = auraCvs.getContext("2d");
+    const agrd = acx.createRadialGradient(128, 128, 10, 128, 128, 120);
+    agrd.addColorStop(0, "rgba(255, 120, 180, 0.95)");
+    agrd.addColorStop(0.6, "rgba(180, 40, 120, 0.35)");
+    agrd.addColorStop(1, "rgba(0, 0, 0, 0)");
+    acx.fillStyle = agrd;
+    acx.beginPath();
+    acx.arc(128, 128, 120, 0, Math.PI * 2);
+    acx.fill();
+    const auraTex = new THREE.CanvasTexture(auraCvs);
+    const aura = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: auraTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    }));
+    aura.scale.set(4.5 * s, 4.5 * s, 1);
+    aura.position.set(0, 0.2, 0.01);
+    pivot.add(aura);
+    group.userData.aura = aura;
+
+    // 雙眼（紫紅發光）
+    const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff2a6a });
+    const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.08 * s, 8, 6), eyeMat);
+    eyeL.position.set(-0.25 * s, 0.1 * s, 0.9 * s);
+    pivot.add(eyeL);
+    const eyeR = new THREE.Mesh(new THREE.SphereGeometry(0.08 * s, 8, 6), eyeMat);
+    eyeR.position.set(0.25 * s, 0.1 * s, 0.9 * s);
+    pivot.add(eyeR);
+  }
+
+  // 共通：Boss 腳下光影 + 頭頂名牌
+  const shadow = new THREE.Mesh(
+    new THREE.CircleGeometry(1.6 * s, 24),
+    new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.45, depthWrite: false })
+  );
+  shadow.rotation.x = -Math.PI / 2;
+  shadow.position.y = -1.3 * s;
+  group.add(shadow);
+
+  const nameTex = makeBossNameTexture(bossData.zhName, bossData.deName);
+  const nameSprite = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: nameTex, depthTest: false, depthWrite: false, transparent: true,
+  }));
+  nameSprite.scale.set(5.2 * s, 1.3 * s, 1);
+  nameSprite.position.set(0, 2.5 * s, 0);
+  group.add(nameSprite);
+  group.userData.nameSprite = nameSprite;
+
+  // Boss 的光源（讓它自發光強一些）
+  const light = new THREE.PointLight(bossData.accent, 1.6, 10, 2);
+  light.position.set(0, 0.8, 0);
+  group.add(light);
+
+  return { group, pivot };
+}
+
+function spawnBoss(idx) {
+  if (idx < 0 || idx >= BOSSES.length) return;
+  const data = BOSSES[idx];
+  const model = createBossModel(data);
+  // 從畫面外高空降臨
+  model.group.position.set(0, 2.5, WORLD.SPAWN_Z - 4);
+  scene.add(model.group);
+
+  const boss = {
+    data: data,
+    group: model.group,
+    pivot: model.pivot,
+    hp: data.hp,
+    maxHp: data.hp,
+    shootTimer: 1.2,           // 第 1.2 秒後第一次射擊
+    moveT: 0,
+    spinT: 0,
+    spiralPhase: 0,
+    phase: "intro",            // intro → battle → dying
+    introElapsed: 0,
+    dyingElapsed: 0,
+    targetZ: -4.5,             // 最終定位的 z（較近，視覺更震撼）
+    bulletCooldown: data.shootInterval,
+  };
+  state.boss = boss;
+
+  // HUD 顯示
+  ui.bossHud.classList.remove("hidden");
+  ui.bossZh.textContent = data.zhName;
+  ui.bossDe.textContent = data.deName;
+  ui.bossSubtitle.textContent = data.subtitle;
+  ui.bossBarFill.style.width = "100%";
+  ui.bossProgress.classList.add("boss-active");
+  ui.bossProgressCount.textContent = "BOSS";
+  ui.bossProgressTotal.textContent = String(TOTAL_BOSSES);
+
+  showBossBanner(data);
+  SFX.bossSpawn();
+}
+
+function showBossBanner(data) {
+  ui.bannerZh.textContent = data.zhName;
+  ui.bannerDe.textContent = data.deName;
+  ui.bannerSubtitle.textContent = data.subtitle;
+  ui.bossBanner.classList.remove("show");
+  void ui.bossBanner.offsetWidth;
+  ui.bossBanner.classList.add("show");
+  clearTimeout(showBossBanner._t);
+  showBossBanner._t = setTimeout(function () {
+    ui.bossBanner.classList.remove("show");
+  }, 2200);
+}
+
+function updateBoss(dt) {
+  const boss = state.boss;
+  if (!boss) return;
+  boss.moveT += dt;
+  boss.spinT += dt;
+
+  // 出場動畫：從遠處滑到目標 z
+  if (boss.phase === "intro") {
+    boss.introElapsed += dt;
+    const target = boss.targetZ;
+    boss.group.position.z += (target - boss.group.position.z) * Math.min(1, dt * 1.8);
+    boss.group.position.y = 2.5 - 0.8 * Math.min(1, boss.introElapsed / 1.5);
+    if (boss.introElapsed >= 1.6) {
+      boss.phase = "battle";
+    }
+  } else if (boss.phase === "battle") {
+    const amp = boss.data.moveAmp;
+    const freq = boss.data.moveFreq;
+    boss.group.position.x = Math.sin(boss.moveT * freq * Math.PI * 2) * amp;
+    boss.group.position.z = boss.targetZ + Math.sin(boss.moveT * freq * 1.7) * 0.8;
+    boss.group.position.y = 1.7 + Math.sin(boss.moveT * 1.1) * 0.25;
+  } else if (boss.phase === "dying") {
+    boss.dyingElapsed += dt;
+    boss.pivot.rotation.z += dt * 6;
+    boss.pivot.rotation.y += dt * 4;
+    const s = Math.max(0, 1 - boss.dyingElapsed * 0.8);
+    boss.pivot.scale.set(s, s, s);
+    boss.group.position.y += dt * 0.3;
+    if (Math.random() < 0.3) {
+      const off = new THREE.Vector3((Math.random() - 0.5) * 1.8, (Math.random() - 0.5) * 1.6, (Math.random() - 0.5) * 1.2);
+      spawnHitSparks(boss.group.position.clone().add(off), boss.data.accent, 14);
+    }
+    if (boss.dyingElapsed >= 1.4) {
+      finalizeBossDefeat();
+    }
+    return;
+  }
+
+  // 旋轉動畫（不同 Boss 不同效果）
+  if (boss.data.id === 1) {
+    if (boss.pivot) boss.pivot.rotation.y = boss.spinT * 0.6;
+  } else if (boss.data.id === 2) {
+    const heads = boss.group.userData.heads;
+    if (heads) {
+      heads.forEach(function (h, i) {
+        h.rotation.y = Math.sin(boss.spinT * 1.2 + i) * 0.3;
+      });
+    }
+  } else if (boss.data.id === 3) {
+    const rings = boss.group.userData.rings;
+    if (rings) {
+      rings.forEach(function (r, i) {
+        r.rotation.z = boss.spinT * (1.2 + i * 0.4) * (i % 2 === 0 ? 1 : -1);
+      });
+    }
+    if (boss.pivot) boss.pivot.rotation.y = boss.spinT * 0.4;
+  } else if (boss.data.id === 4) {
+    const wings = boss.group.userData.wings;
+    if (wings) {
+      const flap = Math.sin(boss.spinT * 3.0) * 0.3;
+      wings[0].rotation.z = -0.2 + flap;
+      wings[1].rotation.z = 0.2 - flap;
+    }
+    const aura = boss.group.userData.aura;
+    if (aura) {
+      const p = 1.0 + Math.sin(boss.spinT * 1.8) * 0.12;
+      aura.scale.set(4.5 * p, 4.5 * p, 1);
+      aura.material.opacity = 0.75 + Math.sin(boss.spinT * 2.2) * 0.2;
+    }
+  }
+
+  // 射擊
+  if (boss.phase === "battle") {
+    boss.shootTimer -= dt;
+    if (boss.shootTimer <= 0) {
+      boss.shootTimer = boss.data.shootInterval;
+      bossShoot(boss);
+    }
+  }
+}
+
+function bossShoot(boss) {
+  const data = boss.data;
+  const pp = player.group.position;
+  const bp = boss.group.position;
+  const dx = pp.x - bp.x;
+  const dz = pp.z - bp.z;
+  const baseAngle = Math.atan2(dx, dz);
+
+  if (data.pattern === "circle") {
+    // 8 發圓形放射
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      spawnBossBullet(boss, Math.sin(a), Math.cos(a), data.bulletSpeed, data.accent);
+    }
+  } else if (data.pattern === "trident") {
+    // 三叉向玩家 + 三發連射
+    for (const spread of [-0.32, 0, 0.32]) {
+      const a = baseAngle + spread;
+      spawnBossBullet(boss, Math.sin(a), Math.cos(a), data.bulletSpeed, data.accent);
+    }
+  } else if (data.pattern === "spiral") {
+    // 螺旋：每次 2 顆，角度遞增
+    boss.spiralPhase = (boss.spiralPhase + 0.42) % (Math.PI * 2);
+    for (let k = 0; k < 2; k++) {
+      const a = boss.spiralPhase + k * Math.PI;
+      spawnBossBullet(boss, Math.sin(a), Math.cos(a), data.bulletSpeed, data.accent);
+    }
+  } else if (data.pattern === "heart") {
+    // 心形曲線的 12 個點（向玩家方向）
+    // parametric heart: x = 16 sin^3 t, y = 13 cos t - 5 cos 2t - 2 cos 3t - cos 4t
+    const points = [];
+    for (let i = 0; i < 12; i++) {
+      const t = (i / 12) * Math.PI * 2;
+      const hx = Math.pow(Math.sin(t), 3);
+      const hy = (13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)) / 16;
+      points.push([hx, hy]);
+    }
+    for (let i = 0; i < points.length; i++) {
+      const [hx, hy] = points[i];
+      const a = baseAngle + hx * 0.55;
+      const vx = Math.sin(a);
+      const vz = Math.cos(a);
+      const speedMul = 0.75 + Math.abs(hy) * 0.35;
+      spawnBossBullet(boss, vx, vz, data.bulletSpeed * speedMul, data.accent);
+    }
+  }
+  SFX.bossBullet();
+}
+
+function spawnBossBullet(boss, vxN, vzN, speed, color) {
+  const bp = boss.group.position;
+  const geo = new THREE.SphereGeometry(0.22, 10, 8);
+  const mat = new THREE.MeshBasicMaterial({ color: color });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.set(bp.x, 1.7, bp.z + 0.5);
+
+  const glow = new THREE.Mesh(
+    new THREE.SphereGeometry(0.42, 10, 8),
+    new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.45, depthWrite: false })
+  );
+  mesh.add(glow);
+  scene.add(mesh);
+
+  bossBullets.push({
+    mesh: mesh,
+    velocity: new THREE.Vector3(vxN * speed, 0, vzN * speed),
+    life: 4.0,
+    damage: boss.data.bulletDamage,
+    dead: false,
+  });
+}
+
+function removeBossBullet(b) {
+  if (b.dead) return;
+  b.dead = true;
+  scene.remove(b.mesh);
+  b.mesh.traverse(function (o) {
+    if (o.geometry && o.geometry.dispose) o.geometry.dispose();
+    if (o.material && o.material.dispose) o.material.dispose();
+  });
+}
+
+function updateBossBullets(dt) {
+  const pp = player.group.position;
+  for (let i = 0; i < bossBullets.length; i++) {
+    const b = bossBullets[i];
+    if (b.dead) continue;
+    b.mesh.position.addScaledVector(b.velocity, dt);
+    b.life -= dt;
+
+    // 出場外
+    if (b.life <= 0 || b.mesh.position.z > WORLD.DESPAWN_Z + 2 ||
+        b.mesh.position.z < WORLD.SPAWN_Z - 8 ||
+        Math.abs(b.mesh.position.x) > WORLD.LANE_X_MAX + 4) {
+      removeBossBullet(b);
+      continue;
+    }
+
+    // 擊中玩家
+    const dx = b.mesh.position.x - pp.x;
+    const dz = b.mesh.position.z - pp.z;
+    if (dx * dx + dz * dz < 1.1 * 1.1 && b.mesh.position.z >= WORLD.PLAYER_Z - 1.5 && b.mesh.position.z <= WORLD.PLAYER_Z + 1.5) {
+      dealDamageToPlayer(b.damage, "\u9b54\u5f48");
+      spawnHitSparks(b.mesh.position.clone(), 0xff88c8, 14);
+      removeBossBullet(b);
+    }
+  }
+  for (let i = bossBullets.length - 1; i >= 0; i--) if (bossBullets[i].dead) bossBullets.splice(i, 1);
+}
+
+function damageBoss(amount, reason) {
+  const boss = state.boss;
+  if (!boss || boss.phase !== "battle") return;
+  boss.hp = Math.max(0, boss.hp - amount);
+  updateBossHud();
+  // 小型視覺回饋
+  spawnHitSparks(boss.group.position.clone().add(new THREE.Vector3(0, 0.4, 0.6)), boss.data.accent, reason === "big" ? 22 : 6);
+  if (reason === "big") SFX.bossBigHit();
+  else SFX.bossHit();
+  if (boss.hp <= 0) {
+    beginBossDefeat();
+  }
+}
+
+function healBoss(amount) {
+  const boss = state.boss;
+  if (!boss || boss.phase !== "battle") return;
+  boss.hp = Math.min(boss.maxHp, boss.hp + amount);
+  updateBossHud();
+  spawnHitSparks(boss.group.position.clone().add(new THREE.Vector3(0, 0.4, 0)), 0xff99cc, 10);
+}
+
+function updateBossHud() {
+  const boss = state.boss;
+  if (!boss) return;
+  const pct = Math.max(0, boss.hp / boss.maxHp);
+  ui.bossBarFill.style.width = (pct * 100) + "%";
+}
+
+function beginBossDefeat() {
+  const boss = state.boss;
+  if (!boss) return;
+  boss.phase = "dying";
+  SFX.bossDefeat();
+  // 清除 Boss 子彈
+  for (let i = 0; i < bossBullets.length; i++) removeBossBullet(bossBullets[i]);
+  bossBullets.length = 0;
+}
+
+function finalizeBossDefeat() {
+  const boss = state.boss;
+  if (!boss) return;
+  // 移除 3D 模型
+  scene.remove(boss.group);
+  boss.group.traverse(function (o) {
+    if (o.geometry && o.geometry.dispose) o.geometry.dispose();
+    if (o.material) {
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      for (let j = 0; j < mats.length; j++) {
+        if (mats[j].map && mats[j].map.dispose) mats[j].map.dispose();
+        if (mats[j].dispose) mats[j].dispose();
+      }
+    }
+  });
+  // 獎勵：分數、回血、火力
+  const bonus = 500 + boss.data.id * 200;
+  addScore(bonus);
+  state.hp = Math.min(state.maxHp, state.hp + Math.round(state.maxHp * 0.4));
+  updateHpUI();
+  for (let k = 0; k < 2; k++) increaseFirepower();
+  showFloatText("\u64ca\u6557 " + boss.data.zhName + " \uff01 +" + bonus, "good");
+
+  state.boss = null;
+  state.nextBossIdx++;
+  state.correctsSinceBoss = 0;
+  updateBossProgressUI();
+
+  if (state.nextBossIdx >= TOTAL_BOSSES) {
+    triggerGameWin();
+  } else {
+    ui.bossHud.classList.add("hidden");
+  }
+}
+
+function triggerGameWin() {
+  state.gameWon = true;
+  state.mode = "won";
+  ui.bossHud.classList.add("hidden");
+  ui.winFinalScore.textContent = state.score;
+  ui.winFinalBest.textContent = state.bestScore;
+  ui.winFinalKills.textContent = state.kills;
+  ui.winPanel.classList.remove("hidden");
+  SFX.win();
+}
+
+function updateBossProgressUI() {
+  if (state.boss) {
+    ui.bossProgress.classList.add("boss-active");
+    ui.bossProgressCount.textContent = "BOSS";
+    return;
+  }
+  ui.bossProgress.classList.remove("boss-active");
+  if (state.nextBossIdx >= TOTAL_BOSSES) {
+    ui.bossProgressCount.textContent = "\u2713";
+    ui.bossProgressTotal.textContent = TOTAL_BOSSES;
+  } else {
+    ui.bossProgressCount.textContent = state.correctsSinceBoss;
+    ui.bossProgressTotal.textContent = BOSS_TRIGGER_CORRECTS;
+  }
+}
+
+function clearBossEntities() {
+  for (let i = 0; i < bossBullets.length; i++) removeBossBullet(bossBullets[i]);
+  bossBullets.length = 0;
+  if (state.boss) {
+    scene.remove(state.boss.group);
+    state.boss.group.traverse(function (o) {
+      if (o.geometry && o.geometry.dispose) o.geometry.dispose();
+      if (o.material) {
+        const mats = Array.isArray(o.material) ? o.material : [o.material];
+        for (let j = 0; j < mats.length; j++) {
+          if (mats[j].map && mats[j].map.dispose) mats[j].map.dispose();
+          if (mats[j].dispose) mats[j].dispose();
+        }
+      }
+    });
+    state.boss = null;
+  }
+  ui.bossHud.classList.add("hidden");
+}
+
 // ==================== Bullets ====================
 function spawnBullet(x, y, z, vx) {
   if (vx === undefined) vx = 0;
@@ -1311,10 +2044,17 @@ function update(dt) {
   }
 
   state.lastEnemySpawn += dt;
-  if (state.lastEnemySpawn >= DIFF.enemySpawnInterval) {
+  // Boss 在場時大幅減少小兵（避免彈幕過度密集）
+  const enemyCap = state.boss ? 2 : 8;
+  const spawnIntervalMul = state.boss ? 2.2 : 1.0;
+  if (state.lastEnemySpawn >= DIFF.enemySpawnInterval * spawnIntervalMul) {
     state.lastEnemySpawn = 0;
-    if (enemies.length < 8) enemies.push(createEnemy());
+    if (enemies.length < enemyCap) enemies.push(createEnemy());
   }
+
+  // 頭目更新 + Boss 子彈
+  if (state.boss) updateBoss(dt);
+  updateBossBullets(dt);
 
   // 火圈：朝玩家前進 + 旋轉火焰 + 光暈閃動 + 火花繞行
   const now = performance.now();
@@ -1412,11 +2152,27 @@ function getFireInterval() {
 
 // ==================== Collisions ====================
 function checkBulletCollisions() {
-  // 子彈會直接穿過火圈（不造成傷害），只檢查敵機
+  // 子彈會直接穿過火圈（不造成傷害），只檢查敵機 / Boss
+  const boss = state.boss;
   for (let bi = 0; bi < bullets.length; bi++) {
     const b = bullets[bi];
     if (b.dead) continue;
     const bp = b.mesh.position;
+    // 擊中 Boss（優先，Boss 碰撞半徑較大）
+    if (boss && boss.phase === "battle") {
+      const bx = boss.group.position.x;
+      const by = boss.group.position.y;
+      const bz = boss.group.position.z;
+      const dx = bx - bp.x;
+      const dy = by - bp.y;
+      const dz = bz - bp.z;
+      if (dx * dx + dy * dy + dz * dz < (1.5 * boss.data.scale) * (1.5 * boss.data.scale)) {
+        spawnHitSparks(bp.clone(), boss.data.accent, 5);
+        removeBullet(b);
+        damageBoss(Math.max(2, Math.floor((b.damage || 10) * 0.45)), "small");
+        continue;
+      }
+    }
     for (let ei = 0; ei < enemies.length; ei++) {
       const e = enemies[ei];
       if (e.dead) continue;
@@ -1508,12 +2264,27 @@ function resolveGatePair(pairId, outcome, worldPos) {
     showComboToast(state.combo);
     if (worldPos) spawnHitSparks(worldPos, 0xffd060, 28);
     SFX.correct();
+    // ── 頭目系統：答對 → 若 Boss 在場，對 Boss 重創；否則累計進度，達標時 spawn 下個 Boss ──
+    if (state.boss) {
+      damageBoss(Math.round(state.boss.maxHp * 0.22), "big");
+    } else if (state.nextBossIdx < TOTAL_BOSSES) {
+      state.correctsSinceBoss++;
+      updateBossProgressUI();
+      if (state.correctsSinceBoss >= BOSS_TRIGGER_CORRECTS) {
+        spawnBoss(state.nextBossIdx);
+      }
+    }
   } else if (outcome === "wrong") {
     state.combo = 0;
     dealDamageToPlayer(DIFF.wrongDoorDmg, "\u932f\u706b\u5708");
     decreaseFirepower();
     flashQuestion(false);
     if (worldPos) spawnHitSparks(worldPos, 0xff5544, 24);
+    // Boss 在場 → 穿錯火圈會幫 Boss 回血
+    if (state.boss) {
+      healBoss(Math.round(state.boss.maxHp * 0.1));
+      showFloatText("Boss \u56de\u8840\uff01", "bad");
+    }
     SFX.wrong();
   } else {
     // miss：兩個火圈都擦身而過
@@ -1603,6 +2374,23 @@ const ui = {
   questionBoard: document.getElementById("questionBoard"),
   damageVignette: document.getElementById("damageVignette"),
   sfxBtn: document.getElementById("sfxBtn"),
+  bossHud: document.getElementById("bossHud"),
+  bossZh: document.getElementById("bossZhName"),
+  bossDe: document.getElementById("bossDeName"),
+  bossBarFill: document.getElementById("bossBarFill"),
+  bossSubtitle: document.getElementById("bossSubtitle"),
+  bossProgress: document.getElementById("bossProgress"),
+  bossProgressCount: document.getElementById("bossProgressCount"),
+  bossProgressTotal: document.getElementById("bossProgressTotal"),
+  bossBanner: document.getElementById("bossBanner"),
+  bannerZh: document.getElementById("bannerZh"),
+  bannerDe: document.getElementById("bannerDe"),
+  bannerSubtitle: document.getElementById("bannerSubtitle"),
+  winPanel: document.getElementById("winPanel"),
+  winFinalScore: document.getElementById("winFinalScore"),
+  winFinalBest: document.getElementById("winFinalBest"),
+  winFinalKills: document.getElementById("winFinalKills"),
+  winRetryBtn: document.getElementById("winRetryBtn"),
 };
 
 function updateHpUI() {
@@ -1683,16 +2471,24 @@ function startGame() {
   state.lastFire = 0;
   state.lastDoorSpawn = DIFF.doorSpawnInterval - 1.8;
   state.lastEnemySpawn = DIFF.enemySpawnInterval - 2.0;
+  // 重置 Boss 進度
+  state.boss = null;
+  state.nextBossIdx = 0;
+  state.correctsSinceBoss = 0;
+  state.gameWon = false;
 
   clearEntities();
+  clearBossEntities();
   updateHpUI();
   updateFpUI();
   updateScoreUI();
   updateComboUI();
+  updateBossProgressUI();
   ui.best.textContent = state.bestScore;
   document.getElementById("startPanel").classList.add("hidden");
   document.getElementById("gameOverPanel").classList.add("hidden");
   document.getElementById("pausePanel").classList.add("hidden");
+  if (ui.winPanel) ui.winPanel.classList.add("hidden");
 
   updateQuestionBoardWaiting();
   spawnDoorPair();
@@ -1790,6 +2586,13 @@ document.getElementById("retryBtn").addEventListener("click", function () {
   if (ctx && ctx.state === "suspended") ctx.resume().catch(function () {});
   startGame();
 });
+if (ui.winRetryBtn) {
+  ui.winRetryBtn.addEventListener("click", function () {
+    const ctx = ensureAudio();
+    if (ctx && ctx.state === "suspended") ctx.resume().catch(function () {});
+    startGame();
+  });
+}
 
 ui.sfxBtn.addEventListener("click", function () {
   state.sfxOn = !state.sfxOn;
