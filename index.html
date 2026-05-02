@@ -1,0 +1,215 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <title>德文雷電 — Deutscher Donner 戰機射擊</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body class="game-body">
+    <div id="gameRoot">
+      <canvas id="renderCanvas"></canvas>
+
+      <!-- HUD 覆蓋層 -->
+      <div class="hud-overlay" aria-hidden="true">
+        <!-- 頂部：分數/最佳/設定 -->
+        <div class="hud-top">
+          <div class="hud-top-left">
+            <span class="chip">⭐ 分數 <b id="scoreText">0</b></span>
+            <span class="chip">🏆 最佳 <b id="bestText">0</b></span>
+            <span class="chip combo" id="comboChip" style="display:none">🔥 連殺 <b id="comboText">0</b></span>
+          </div>
+          <div class="hud-top-right">
+            <a class="icon-btn" href="./settings.html" title="設定" aria-label="設定">⚙</a>
+            <button class="icon-btn" id="pauseBtn" title="暫停" aria-label="暫停">⏸</button>
+            <button class="icon-btn" id="sfxBtn" title="音效" aria-label="音效">🔊</button>
+          </div>
+        </div>
+
+        <!-- 左側：血條/火力 -->
+        <div class="stats-bars">
+          <div class="bar-block">
+            <div class="bar-label">
+              <span>HP</span><b><span id="hpText">100</span> / <span id="hpMaxText">100</span></b>
+            </div>
+            <div class="bar-outer"><div class="bar-inner" id="hpBarInner" style="width:100%"></div></div>
+          </div>
+          <div class="bar-block">
+            <div class="bar-label">
+              <span>火力</span><b>Lv <span id="fpText">1</span></b>
+            </div>
+            <div class="bar-outer"><div class="bar-inner" id="fpBarInner" style="width:20%"></div></div>
+          </div>
+        </div>
+
+        <!-- 連殺提示 -->
+        <div class="combo-toast" id="comboToast"></div>
+
+        <!-- 受傷紅幕 -->
+        <div class="damage-vignette" id="damageVignette"></div>
+
+        <!-- 題目板（螢幕上方） -->
+        <div class="question-board" id="questionBoard">
+          <div class="question-prompt" id="questionPrompt">穿過寫著正確德文的能量火圈</div>
+          <div class="question-text" id="questionText">—</div>
+          <div class="question-tags" id="questionTags"></div>
+          <div class="question-hint">穿過正確火圈 = 回血 / 火力 ↑　　穿錯 / 錯過 = 扣血 / 火力 ↓</div>
+        </div>
+      </div>
+
+      <!-- 起始面板 -->
+      <div class="panel-mask" id="startPanel">
+        <div class="panel-card">
+          <h1>德文雷電</h1>
+          <h2>Deutscher Donner · 戰機射擊 × 德文答題</h2>
+          <ul class="rules">
+            <li>✈️ 左右移動滑鼠／手指，戰機會自動不停開火</li>
+            <li>📜 上方出現中文題目</li>
+            <li>🔥 前方會出現兩道高懸的德文能量火圈</li>
+            <li>✅ 操控戰機穿過正確的火圈 → 回血 / 火力升級</li>
+            <li>❌ 穿過錯誤火圈或兩邊都沒選到 → 扣血 / 火力減弱</li>
+            <li>👾 敵機會從遠方俯衝而來，用子彈擊落它們</li>
+            <li>⌨️ 也可用 ← → 方向鍵或 A / D 鍵控制</li>
+          </ul>
+          <p id="loadStatus" class="message">載入遊戲模組中…</p>
+          <div class="panel-actions">
+            <button class="primary-btn" id="startBtn" disabled>載入中…</button>
+            <a class="btn-link" href="./settings.html">⚙ 設定題庫</a>
+          </div>
+          <p class="message" id="startMessage"></p>
+          <details id="errorDetails" style="display:none;margin-top:10px;text-align:left;font-size:0.78rem;color:#a5b4fc;">
+            <summary style="cursor:pointer;color:#ff5577;">顯示技術錯誤訊息</summary>
+            <pre id="errorLog" style="white-space:pre-wrap;background:rgba(0,0,0,0.4);padding:8px;border-radius:8px;margin-top:6px;max-height:240px;overflow:auto;"></pre>
+          </details>
+        </div>
+      </div>
+
+      <!-- 暫停面板 -->
+      <div class="panel-mask hidden" id="pausePanel">
+        <div class="panel-card">
+          <h1>遊戲暫停</h1>
+          <h2>Pause</h2>
+          <div class="panel-actions">
+            <button class="primary-btn" id="resumeBtn">繼續</button>
+            <a class="btn-link" href="./settings.html">⚙ 設定</a>
+            <button class="warn-btn" id="quitBtn">放棄</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 結束面板 -->
+      <div class="panel-mask hidden" id="gameOverPanel">
+        <div class="panel-card">
+          <h1>遊戲結束</h1>
+          <h2>Game Over</h2>
+          <div class="big-num"><span id="finalScore">0</span></div>
+          <p class="subtitle" style="margin:0 0 8px;color:var(--text-dim);">
+            最佳分數：<b style="color:var(--gold)"><span id="finalBest">0</span></b>　擊殺：<b><span id="finalKills">0</span></b>
+          </p>
+          <div class="panel-actions">
+            <button class="primary-btn" id="retryBtn">再來一局</button>
+            <a class="btn-link" href="./settings.html">⚙ 設定</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 全域錯誤攔截（在任何腳本載入前就先設好） -->
+    <script>
+      (function () {
+        const show = (msg) => {
+          const log = document.getElementById("errorLog");
+          const details = document.getElementById("errorDetails");
+          const status = document.getElementById("loadStatus");
+          const btn = document.getElementById("startBtn");
+          if (!log || !details || !status || !btn) return;
+          log.textContent += msg + "\n";
+          details.style.display = "block";
+          details.open = true;
+          status.textContent = "⚠️ 載入失敗，請看下方技術訊息";
+          status.style.color = "#ff5577";
+          btn.textContent = "載入失敗";
+          btn.disabled = true;
+        };
+        window.addEventListener("error", (e) => {
+          const line = `[${e.filename || "?"}:${e.lineno || "?"}] ${e.message}`;
+          show(line);
+        });
+        window.addEventListener("unhandledrejection", (e) => {
+          const msg = e.reason?.message || String(e.reason);
+          show("[Promise 未捕獲] " + msg);
+        });
+        // 20 秒後若 game.js 還沒把 startBtn 啟用，才判定為「載入失敗」
+        window.__gameReady = false;
+        setTimeout(() => {
+          if (!window.__gameReady) {
+            show(
+              "20 秒後仍未就緒。最常見原因：" +
+                "\n  1) 沒有網路連線（Three.js 需從 CDN 下載）" +
+                "\n  2) 瀏覽器封鎖了 file:// 下的 module/CDN 載入" +
+                "\n  3) 防火牆或 AdBlock 擋下 unpkg.com" +
+                "\n建議：連網後重新整理，或改用本地 HTTP server。"
+            );
+          }
+        }, 20000);
+      })();
+    </script>
+
+    <!-- 離線資料（classic script，file:// 可直接讀）-->
+    <script src="./data/words-data.js"></script>
+    <script src="./shared.js"></script>
+
+    <!--
+      Inline module 橋接器：
+        1. 從 CDN 動態 import Three.js，把 namespace 掛到 window.THREE
+        2. 再以 classic script 方式載入 game.js（避開 file:// 對外部 module 的 CORS 封鎖）
+      如果 CDN 失敗（離線、防火牆擋 unpkg 等），自動 fallback 到本地 ./vendor/three.module.js
+    -->
+    <script type="module">
+      const CDN = "https://unpkg.com/three@0.160.0/build/three.module.js";
+      const LOCAL = "./vendor/three.module.js";
+
+      async function loadThree() {
+        try {
+          return await import(CDN);
+        } catch (errCdn) {
+          try {
+            return await import(LOCAL);
+          } catch (errLocal) {
+            throw new Error(
+              "Three.js 載入失敗：\n" +
+                "  · CDN: " + (errCdn.message || errCdn) + "\n" +
+                "  · 本地: " + (errLocal.message || errLocal)
+            );
+          }
+        }
+      }
+
+      try {
+        const THREE = await loadThree();
+        window.THREE = THREE;
+        // Three 掛好後才以 classic script 載入 game.js（classic script 沒有 file:// CORS 限制）
+        await new Promise((resolve, reject) => {
+          const s = document.createElement("script");
+          s.src = "./game.js";
+          s.onload = resolve;
+          s.onerror = (e) => reject(new Error("無法載入 game.js"));
+          document.body.appendChild(s);
+        });
+      } catch (e) {
+        // 顯示在起始面板的錯誤區
+        const log = document.getElementById("errorLog");
+        const details = document.getElementById("errorDetails");
+        const status = document.getElementById("loadStatus");
+        const btn = document.getElementById("startBtn");
+        if (log) log.textContent += (e.message || String(e)) + "\n";
+        if (details) { details.style.display = "block"; details.open = true; }
+        if (status) { status.textContent = "⚠️ 載入失敗，請看下方技術訊息"; status.style.color = "#ff5577"; }
+        if (btn) { btn.disabled = true; btn.textContent = "載入失敗"; }
+      }
+    </script>
+  </body>
+</html>

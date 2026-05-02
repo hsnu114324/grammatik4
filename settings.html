@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <title>德文題庫設定 — 勇者之門</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body class="settings-body">
+    <main class="settings-page">
+      <section class="card">
+        <h1>德文題庫設定 <span class="version-tag">v1.0</span></h1>
+        <p class="subtitle">為「勇者之門 3D 射擊」選擇題庫與難度。設定會自動儲存。</p>
+        <p id="message" class="message"></p>
+
+        <!-- 題庫群組 -->
+        <div class="section">
+          <div class="section-title">📚 題庫群組（可複選）</div>
+          <div id="groupBtnBar" class="group-btn-bar"></div>
+        </div>
+
+        <!-- 難度 -->
+        <div class="section">
+          <div class="section-title">⚔️ 遊戲難度</div>
+          <div id="difficultyBar" class="pill-bar">
+            <button type="button" class="pill-btn" data-diff="easy">🟢 簡單</button>
+            <button type="button" class="pill-btn" data-diff="normal">🟡 普通</button>
+            <button type="button" class="pill-btn" data-diff="hard">🔴 困難</button>
+          </div>
+          <p class="subtitle" style="margin-top:8px;">難度會影響門 / 敵人移動速度、敵人血量、傷害與玩家血量上限。</p>
+        </div>
+
+        <!-- 題目方向（暫時只做 zh→de，但保留未來擴充） -->
+        <div class="section">
+          <div class="section-title">🧭 題目方向</div>
+          <div id="modeBar" class="pill-bar">
+            <button type="button" class="pill-btn" data-mode="zh2de">中文 → 德文</button>
+            <button type="button" class="pill-btn" data-mode="de2zh" disabled title="即將推出">德文 → 中文（待開放）</button>
+          </div>
+        </div>
+
+        <!-- 題庫預覽 -->
+        <div class="section">
+          <div class="section-title">🔍 題庫預覽</div>
+          <p class="subtitle" style="margin:0 0 6px;">共 <b id="poolCount">0</b> 題可用。隨機顯示前 20 筆：</p>
+          <div class="preview-box" id="previewBox">—</div>
+        </div>
+
+        <!-- 音效 / 最佳分數 -->
+        <div class="section">
+          <div class="toggle-row">
+            <span>🔊 音效</span>
+            <div class="switch on" id="sfxSwitch" role="switch" aria-checked="true"></div>
+          </div>
+          <div class="toggle-row">
+            <span>🏆 最佳分數</span>
+            <b id="bestScoreText" style="color:var(--gold)">0</b>
+          </div>
+        </div>
+
+        <div class="actions">
+          <a class="btn-link primary-btn" href="./index.html">🎮 開始遊戲</a>
+          <button id="resetBtn" class="warn-btn" type="button">還原預設</button>
+        </div>
+      </section>
+    </main>
+
+    <script src="./data/words-data.js"></script>
+    <script src="./shared.js"></script>
+    <script src="./settings.js"></script>
+  </body>
+</html>
