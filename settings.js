@@ -21,7 +21,17 @@
     return;
   }
 
-  let active = new Set(loadActiveGroups());
+  // 設定頁只露出變格練習（群組 3/4/5）。把舊 active 中 <2 的部分過濾掉。
+  const VISIBLE_GROUP_IDX = [2, 3, 4];
+  const GROUP_META = {
+    2: { title: "\u7fa4\u7d44 3\uff1a\u7269\u4e3b\u4ee3\u8a5e\u8b8a\u683c", subtitle: "Possessivpronomen \u00b7 mein / dein / sein\u2026" },
+    3: { title: "\u7fa4\u7d44 4\uff1a\u51a0\u8a5e + \u540d\u8a5e\u8b8a\u683c", subtitle: "Nomen-Deklination \u00b7 der / ein / kein / dieser\u2026" },
+    4: { title: "\u7fa4\u7d44 5\uff1a\u5f62\u5bb9\u8a5e\u8a5e\u5c3e\u8b8a\u5316", subtitle: "Adjektivendungen \u00b7 -e / -en / -er \u00b7 \u5f37 / \u5f31 / \u6df7\u5408" },
+  };
+
+  let active = new Set(loadActiveGroups().filter((n) => VISIBLE_GROUP_IDX.includes(n)));
+  if (active.size === 0) active = new Set([2]);
+  saveActiveGroups([...active]);
   let difficulty = loadDifficulty();
   let mode = loadQuestionMode();
   let sfxOn = loadSfxOn();
@@ -29,34 +39,30 @@
   // ── 題庫群組 ──
   function renderGroups() {
     groupBar.innerHTML = "";
-    data.groups.forEach((grp, idx) => {
-      const sampleRows = grp.slice(0, 2);
+    VISIBLE_GROUP_IDX.forEach((idx) => {
+      const grp = data.groups[idx];
+      if (!grp) return;
+      const meta = GROUP_META[idx] || { title: `\u7fa4\u7d44 ${idx + 1}`, subtitle: "" };
+      const sampleRows = grp.slice(0, 3);
       const sampleItems = [];
       for (const r of sampleRows) {
         const arr = parseRowForGroup(r, idx);
         if (arr.length) sampleItems.push(arr[0].zh);
-        else sampleItems.push(String(r).split(",")[0]);
       }
-      const sample = sampleItems.join("、");
-      // 預估展開後的題數（只算一個 sample 平均，以免預覽太慢）
-      let rowCount = grp.length;
-      if (idx >= 2) {
-        let total = 0;
-        for (const r of grp) total += parseRowForGroup(r, idx).length;
-        rowCount = total;
-      }
+      const sample = sampleItems.join("\u3001");
+      let total = 0;
+      for (const r of grp) total += parseRowForGroup(r, idx).length;
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "group-btn" + (active.has(idx) ? " active" : "");
       btn.dataset.group = String(idx);
-      btn.innerHTML = `<div>群組 ${idx + 1}（${rowCount} 筆）</div><small>${escapeHtml(sample)}…</small>`;
+      btn.innerHTML = `<div>${escapeHtml(meta.title)}<span class="group-count">（${total} 題）</span></div>`
+        + `<small class="group-subtitle">${escapeHtml(meta.subtitle)}</small>`
+        + `<small>${escapeHtml(sample)}\u2026</small>`;
       btn.addEventListener("click", () => {
         if (active.has(idx)) active.delete(idx);
         else active.add(idx);
-        if (active.size === 0) {
-          // 不允許全空
-          active.add(idx);
-        }
+        if (active.size === 0) active.add(idx);
         saveActiveGroups([...active]);
         renderGroups();
         renderPreview();
@@ -127,7 +133,7 @@
   // ── 還原預設 ──
   resetBtn.addEventListener("click", () => {
     if (!confirm("確定要還原為預設設定嗎？")) return;
-    active = new Set([0, 1]);
+    active = new Set(VISIBLE_GROUP_IDX);
     difficulty = "normal";
     mode = "zh2de";
     sfxOn = true;

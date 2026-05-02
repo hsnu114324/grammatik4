@@ -518,6 +518,22 @@ body.settings-body {
   opacity: 0.75;
 }
 
+.group-btn small.group-subtitle {
+  color: #ffd39a;
+  opacity: 0.95;
+  font-weight: 600;
+  font-size: 0.78rem;
+  margin-top: 4px;
+  letter-spacing: 0.2px;
+}
+
+.group-btn .group-count {
+  margin-left: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  opacity: 0.75;
+}
+
 .group-btn.active {
   border-color: var(--accent);
   box-shadow: 0 0 10px rgba(126, 166, 255, 0.55), inset 0 0 8px rgba(126, 166, 255, 0.15);

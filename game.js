@@ -736,12 +736,28 @@ function spawnDoorPair() {
   if (!questionPool.length) return;
 
   const q = randomChoice(questionPool);
-  let wrong = q;
-  for (let i = 0; i < 12; i++) {
-    const cand = randomChoice(questionPool);
-    if (cand.de && cand.de !== q.de) { wrong = cand; break; }
+  let wrong = null;
+
+  // 若正確題是變格題（有 caseIdx），優先從「同群組 + 同格位」的題目中選 wrong，
+  // 讓兩個火圈都是同一個格位（例如都是第3格 Dativ），
+  // 玩家必須根據題目的陰陽性 / 冠詞 / 擁有者判斷，而不是靠格位名就能瞎猜。
+  if (q.caseIdx !== undefined && q.caseIdx !== null) {
+    const sameSlot = questionPool.filter(function (x) {
+      return x.group === q.group
+        && x.caseIdx === q.caseIdx
+        && x.de && x.de !== q.de
+        && x.zh !== q.zh;
+    });
+    if (sameSlot.length) wrong = randomChoice(sameSlot);
   }
-  if (wrong.de === q.de) return;
+  // fallback：退回原本「整個 pool 中隨便挑一個不同 de 的」
+  if (!wrong) {
+    for (let i = 0; i < 12; i++) {
+      const cand = randomChoice(questionPool);
+      if (cand.de && cand.de !== q.de) { wrong = cand; break; }
+    }
+  }
+  if (!wrong || wrong.de === q.de) return;
 
   const correctSide = Math.random() < 0.5 ? "left" : "right";
   const left = (correctSide === "left")

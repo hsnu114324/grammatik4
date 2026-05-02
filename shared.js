@@ -154,7 +154,13 @@ function expandDeclensionRow(row, kind) {
     if (seenAnswers.has(de)) continue;
     seenAnswers.add(de);
     const zh = buildDeclensionZh(label, DECLENSION_CASES[i].zh, kind);
-    result.push({ zh, de });
+    // caseIdx: 0=Nom, 1=Gen, 2=Dat, 3=Akk；caseKey: "Nom." / "Gen." / "Dat." / "Akk."
+    result.push({
+      zh,
+      de,
+      caseIdx: i,
+      caseKey: DECLENSION_CASES[i].key,
+    });
   }
   return result;
 }
@@ -191,15 +197,19 @@ function buildQuestionPool(activeGroups) {
 }
 
 // ── localStorage helper ──
+// 設定頁目前只列出群組 3/4/5（變格練習）。預設全部啟用，確保題庫最豐富。
+const DEFAULT_ACTIVE_GROUPS = [2, 3, 4];
 function loadActiveGroups() {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.ACTIVE_GROUPS);
-    if (!raw) return [0, 1];
+    if (!raw) return DEFAULT_ACTIVE_GROUPS.slice();
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed) || parsed.length === 0) return [0, 1];
-    return parsed.filter((n) => Number.isInteger(n) && n >= 0);
+    if (!Array.isArray(parsed) || parsed.length === 0) return DEFAULT_ACTIVE_GROUPS.slice();
+    // 舊資料如果含 0/1 也過濾掉（設定頁已不顯示它們）
+    const filtered = parsed.filter((n) => Number.isInteger(n) && n >= 2);
+    return filtered.length ? filtered : DEFAULT_ACTIVE_GROUPS.slice();
   } catch {
-    return [0, 1];
+    return DEFAULT_ACTIVE_GROUPS.slice();
   }
 }
 
